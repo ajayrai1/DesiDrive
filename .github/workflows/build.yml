@@ -1,0 +1,46 @@
+name: Build APK
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate project
+        id: loc
+        run: |
+          unzip -q DesiDrive_part1_jacky.zip -d _proj
+          d="$(dirname "$(find _proj -name settings.gradle | head -1)")"
+          echo "dir=$d" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+      - name: Build debug APK
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: gradle :android:assembleDebug --stacktrace
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          cp "${{ steps.loc.outputs.dir }}"/android/build/outputs/apk/debug/*.apk out/DesiDrive.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DesiDrive-debug-apk
+          path: out/DesiDrive.apk
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: DesiDrive latest APK
+          prerelease: true
+          files: out/DesiDrive.apk
